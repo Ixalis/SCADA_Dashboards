@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCADA Anomaly Detection Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0f1419;
+            color: #e7e9ea;
+            min-height: 100vh;
+        }
+        .header {
+            background: #1a1f26;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #2f3336;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            color: #1d9bf0;
+        }
+        .status {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #71767b;
+        }
+        .status-dot.connected {
+            background: #00ba7c;
+        }
+        .status-dot.error {
+            background: #f4212e;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #1a1f26;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #2f3336;
+        }
+        .card h2 {
+            font-size: 1rem;
+            color: #71767b;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+        .metric {
+            text-align: center;
+            padding: 1rem;
+            background: #0f1419;
+            border-radius: 8px;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1d9bf0;
+        }
+        .metric-value.danger {
+            color: #f4212e;
+        }
+        .metric-value.success {
+            color: #00ba7c;
+        }
+        .metric-label {
+            font-size: 0.85rem;
+            color: #71767b;
+            margin-top: 0.25rem;
+        }
+        .chart-container {
+            height: 250px;
+            position: relative;
+        }
+        .controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #1d9bf0;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #1a8cd8;
+        }
+        button:disabled {
+            background: #2f3336;
+            cursor: not-allowed;
+        }
+        button.danger {
+            background: #f4212e;
+        }
+        button.danger:hover {
+            background: #dc1d28;
+        }
+        button.success {
+            background: #00ba7c;
+        }
+        select {
+            background: #0f1419;
+            color: #e7e9ea;
+            border: 1px solid #2f3336;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .alert-log {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .alert-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            background: #0f1419;
+            border-left: 4px solid #71767b;
+            font-size: 0.9rem;
+        }
+        .alert-item.critical {
+            border-left-color: #f4212e;
+            background: rgba(244, 33, 46, 0.1);
+        }
+        .alert-item.high {
+            border-left-color: #ff6b00;
+            background: rgba(255, 107, 0, 0.1);
+        }
+        .alert-item.medium {
+            border-left-color: #ffd400;
+            background: rgba(255, 212, 0, 0.1);
+        }
+        .alert-item.low {
+            border-left-color: #1d9bf0;
+            background: rgba(29, 155, 240, 0.1);
+        }
+        .alert-time {
+            color: #71767b;
+            font-size: 0.8rem;
+        }
+        .model-status {
+            display: flex;
+            gap: 2rem;
+        }
+        .model-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #0f1419;
+            border-radius: 8px;
+        }
+        .model-badge.loaded {
+            color: #00ba7c;
+        }
+        .model-badge.not-loaded {
+            color: #71767b;
+        }
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+        }
+        .sensor-value {
+            background: #0f1419;
+            padding: 0.5rem;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        .sensor-value .name {
+            color: #71767b;
+            font-size: 0.7rem;
+        }
+        .sensor-value .value {
+            font-weight: bold;
+            color: #e7e9ea;
+        }
+        .sensor-value.anomaly {
+            background: rgba(244, 33, 46, 0.2);
+            border: 1px solid #f4212e;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ SCADA Anomaly Detection</h1>
+        <div class="status">
+            <span>WebSocket:</span>
+            <div class="status-dot" id="wsStatus"></div>
+            <span id="wsStatusText">Disconnected</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Metrics Row -->
+        <div class="card full-width">
+            <h2>Real-Time Metrics</h2>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value" id="totalSamples">0</div>
+                    <div class="metric-label">Total Samples</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value danger" id="anomalyCount">0</div>
+                    <div class="metric-label">Anomalies</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="anomalyRate">0%</div>
+                    <div class="metric-label">Anomaly Rate</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value success" id="latency">0ms</div>
+                    <div class="metric-label">Avg Latency</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detection Score Chart -->
+        <div class="card">
+            <h2>Detection Scores</h2>
+            <div class="chart-container">
+                <canvas id="scoreChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Sensor Values Chart -->
+        <div class="card">
+            <h2>Sensor Values (Sample)</h2>
+            <div class="chart-container">
+                <canvas id="sensorChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="card">
+            <h2>Simulator Controls</h2>
+            <div class="controls">
+                <button id="startBtn" onclick="startSimulator()">▶ Start Simulator</button>
+                <button id="stopBtn" onclick="stopSimulator()" disabled>⏹ Stop</button>
+                <select id="attackType">
+                    <option value="none">No Attack</option>
+                    <option value="point_spike">Point Spike</option>
+                    <option value="slow_drift">Slow Drift</option>
+                    <option value="frozen">Frozen Sensor</option>
+                    <option value="replay">Replay Attack</option>
+                    <option value="noise">Noise Injection</option>
+                </select>
+                <button class="danger" onclick="injectAttack()">⚡ Inject Attack</button>
+            </div>
+            <div class="model-status" style="margin-top: 1rem;">
+                <div class="model-badge" id="ifStatus">
+                    <span>●</span> Isolation Forest: <span id="ifLoaded">Not Loaded</span>
+                </div>
+                <div class="model-badge" id="transStatus">
+                    <span>●</span> Transformer: <span id="transLoaded">Not Loaded</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Log -->
+        <div class="card">
+            <h2>Alert Log</h2>
+            <div class="alert-log" id="alertLog">
+                <div class="alert-item">
+                    <span class="alert-time">--:--:--</span> Waiting for data...
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Sensor Values -->
+        <div class="card full-width">
+            <h2>Current Sensor Values</h2>
+            <div class="sensor-grid" id="sensorGrid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const WS_URL = `ws://${window.location.host}/ws`;
+        const MAX_POINTS = 100;
+        
+        // State
+        let ws = null;
+        let totalSamples = 0;
+        let anomalyCount = 0;
+        let latencies = [];
+        let scoreHistory = [];
+        let sensorHistory = [];
+        
+        // Charts
+        let scoreChart, sensorChart;
+        
+        // Initialize charts
+        function initCharts() {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                scales: {
+                    x: { display: false },
+                    y: { 
+                        grid: { color: '#2f3336' },
+                        ticks: { color: '#71767b' }
+                    }
+                },
+                plugins: {
+                    legend: { 
+                        labels: { color: '#e7e9ea' }
+                    }
+                }
+            };
+            
+            scoreChart = new Chart(document.getElementById('scoreChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'IF Score',
+                            data: [],
+                            borderColor: '#1d9bf0',
+                            backgroundColor: 'rgba(29, 155, 240, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Transformer Score',
+                            data: [],
+                            borderColor: '#9b59b6',
+                            backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Threshold',
+                            data: [],
+                            borderColor: '#f4212e',
+                            borderDash: [5, 5],
+                            fill: false,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: chartOptions
+            });
+            
+            sensorChart = new Chart(document.getElementById('sensorChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Sensor 1', data: [], borderColor: '#00ba7c', fill: false, tension: 0.4 },
+                        { label: 'Sensor 2', data: [], borderColor: '#ffd400', fill: false, tension: 0.4 },
+                        { label: 'Sensor 3', data: [], borderColor: '#f4212e', fill: false, tension: 0.4 }
+                    ]
+                },
+                options: chartOptions
+            });
+        }
+        
+        // Initialize sensor grid
+        function initSensorGrid() {
+            const grid = document.getElementById('sensorGrid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                const div = document.createElement('div');
+                div.className = 'sensor-value';
+                div.id = `sensor-${i}`;
+                div.innerHTML = `<div class="name">Sensor ${i+1}</div><div class="value">--</div>`;
+                grid.appendChild(div);
+            }
+        }
+        
+        // Connect WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                document.getElementById('wsStatus').className = 'status-dot connected';
+                document.getElementById('wsStatusText').textContent = 'Connected';
+                addAlert('Connected to server', 'low');
+            };
+            
+            ws.onclose = () => {
+                document.getElementById('wsStatus').className = 'status-dot error';
+                document.getElementById('wsStatusText').textContent = 'Disconnected';
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = () => {
+                document.getElementById('wsStatus').className = 'status-dot error';
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+        }
+        
+        // Handle incoming messages
+        function handleMessage(data) {
+            if (data.type === 'detection') {
+                totalSamples++;
+                if (data.is_anomaly) anomalyCount++;
+                if (data.latency_ms) latencies.push(data.latency_ms);
+                
+                // Update metrics
+                document.getElementById('totalSamples').textContent = totalSamples;
+                document.getElementById('anomalyCount').textContent = anomalyCount;
+                document.getElementById('anomalyRate').textContent = 
+                    ((anomalyCount / totalSamples) * 100).toFixed(1) + '%';
+                
+                if (latencies.length > 0) {
+                    const avgLatency = latencies.slice(-100).reduce((a, b) => a + b, 0) / Math.min(latencies.length, 100);
+                    document.getElementById('latency').textContent = avgLatency.toFixed(1) + 'ms';
+                }
+                
+                // Update charts
+                updateScoreChart(data);
+                updateSensorChart(data.values);
+                updateSensorGrid(data.values, data.is_anomaly);
+                
+                // Add alert if anomaly
+                if (data.is_anomaly) {
+                    addAlert(data.message || 'Anomaly detected', data.alert_level || 'medium');
+                }
+            } else if (data.type === 'status') {
+                updateModelStatus(data);
+            }
+        }
+        
+        function updateScoreChart(data) {
+            const chart = scoreChart;
+            const maxPoints = MAX_POINTS;
+            
+            chart.data.labels.push('');
+            chart.data.datasets[0].data.push(data.if_score || 0);
+            chart.data.datasets[1].data.push(data.transformer_score || 0);
+            chart.data.datasets[2].data.push(0.5);  // Threshold line
+            
+            if (chart.data.labels.length > maxPoints) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(ds => ds.data.shift());
+            }
+            
+            chart.update('none');
+        }
+        
+        function updateSensorChart(values) {
+            if (!values || values.length < 3) return;
+            
+            const chart = sensorChart;
+            chart.data.labels.push('');
+            chart.data.datasets[0].data.push(values[0]);
+            chart.data.datasets[1].data.push(values[1]);
+            chart.data.datasets[2].data.push(values[2]);
+            
+            if (chart.data.labels.length > MAX_POINTS) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(ds => ds.data.shift());
+            }
+            
+            chart.update('none');
+        }
+        
+        function updateSensorGrid(values, isAnomaly) {
+            if (!values) return;
+            for (let i = 0; i < Math.min(10, values.length); i++) {
+                const el = document.getElementById(`sensor-${i}`);
+                if (el) {
+                    el.querySelector('.value').textContent = values[i].toFixed(2);
+                    el.className = isAnomaly ? 'sensor-value anomaly' : 'sensor-value';
+                }
+            }
+        }
+        
+        function updateModelStatus(data) {
+            if (data.if_loaded !== undefined) {
+                document.getElementById('ifLoaded').textContent = data.if_loaded ? 'Loaded ✓' : 'Not Loaded';
+                document.getElementById('ifStatus').className = data.if_loaded ? 'model-badge loaded' : 'model-badge not-loaded';
+            }
+            if (data.transformer_loaded !== undefined) {
+                document.getElementById('transLoaded').textContent = data.transformer_loaded ? 'Loaded ✓' : 'Not Loaded';
+                document.getElementById('transStatus').className = data.transformer_loaded ? 'model-badge loaded' : 'model-badge not-loaded';
+            }
+        }
+        
+        function addAlert(message, level) {
+            const log = document.getElementById('alertLog');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `alert-item ${level}`;
+            div.innerHTML = `<span class="alert-time">${time}</span> ${message}`;
+            log.insertBefore(div, log.firstChild);
+            
+            // Keep only last 50 alerts
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+        
+        // Simulator controls
+        async function startSimulator() {
+            try {
+                const response = await fetch('/simulator/start', { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'started') {
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    addAlert('Simulator started', 'low');
+                }
+            } catch (e) {
+                addAlert('Failed to start simulator: ' + e.message, 'high');
+            }
+        }
+        
+        async function stopSimulator() {
+            try {
+                const response = await fetch('/simulator/stop', { method: 'POST' });
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                addAlert('Simulator stopped', 'low');
+            } catch (e) {
+                addAlert('Failed to stop simulator: ' + e.message, 'high');
+            }
+        }
+        
+        async function injectAttack() {
+            const attackType = document.getElementById('attackType').value;
+            if (attackType === 'none') {
+                addAlert('Select an attack type first', 'low');
+                return;
+            }
+            try {
+                const response = await fetch('/simulator/attack', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ attack_type: attackType, duration: 30 })
+                });
+                addAlert(`Injecting ${attackType} attack...`, 'high');
+            } catch (e) {
+                addAlert('Failed to inject attack: ' + e.message, 'high');
+            }
+        }
+        
+        // Check initial status
+        async function checkStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                updateModelStatus(data);
+            } catch (e) {
+                console.error('Failed to check status:', e);
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            initSensorGrid();
+            connectWebSocket();
+            checkStatus();
+        });
+    </script>
+</body>
+</html>

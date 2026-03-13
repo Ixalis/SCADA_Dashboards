@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# TensorFlow
+*.h5
+*.keras
+*.tflite
+
+# Model files (large binaries - download separately)
+saved_models/*.pkl
+saved_models/*.keras
+saved_models/*.tflite
+saved_models/*.h5
+!saved_models/.gitkeep
+
+# Data files
+data/
+*.xlsx
+*.csv
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
