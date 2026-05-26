@@ -2,9 +2,6 @@
 
 Real-time anomaly detection for industrial control systems using a hybrid Isolation Forest + Transformer-Autoencoder ensemble, deployed on edge hardware.
 
-**Capstone Project — HK252-DATN-246**
-Le Tien Phat (2252600) — Computer Engineering, HCMUT-VNUHCM
-Supervisor: Dr. Vo Tuan Binh
 
 ## Overview
 
@@ -309,7 +306,4 @@ If you are trying to replicate this on your own hardware:
 
 This project was developed as a capstone thesis at HCMUT. The SWaT dataset is provided by iTrust, SUTD, Singapore, under their research access terms.
 
-## Author
 
-Le Tien Phat (2252600) — Computer Engineering, HCMUT-VNUHCM
-Supervisor: Dr. Vo Tuan Binh
