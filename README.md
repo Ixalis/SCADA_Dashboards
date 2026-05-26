@@ -291,7 +291,6 @@ If you are trying to replicate this on your own hardware:
 
 ## Known limitations
 
-- **No ablation study:** The LSTM-AE improvement (72.28% → 83.98% AUC-ROC) conflates the sigmoid-to-linear fix with architectural changes. No isolated measurement of each contribution exists.
 - **Deployed model not benchmarked:** The reduced Transformer-AE (seq_len=50) running on the Pi was not evaluated on SWaT. Detection quality likely degrades for subtle attacks.
 - **No industrial protocol integration:** Data enters via HTTP/WebSocket, not OPC-UA, Modbus, or DNP3.
 - **Single dataset:** Evaluated on SWaT only. The model must be retrained for any other SCADA system.
